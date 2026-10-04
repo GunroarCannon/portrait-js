@@ -78,6 +78,7 @@ js/parts/clothing.js     19 garments
 js/parts/jewelry.js      earrings, necklaces, eyewear
 js/parts/patterns.js     textile patterns
 js/extensions/example.js a working example of every extension point
+js/extensions/speech-synth.js  babble voices (see Voices below)
 js/ui/knob.js            the rotary dial widget
 js/ui/app.js             panels, locks, undo, sketchbook, export
 tools/contact-sheet.html renders every entry of a category, for checking new parts
@@ -260,6 +261,32 @@ In code, call `PM.generate({ seed, archetype, mixWith, mix, gender, base, locked
 
 ---
 
+## Voices
+
+`js/extensions/speech-synth.js` gives every portrait a voice that babbles like the characters in *Reigns* or *Animal Crossing*. Actors talk out loud automatically, and their mouths move in time with the syllables.
+
+- **Heritage sets the language.** Each heritage has its own invented tongue: which consonants and vowels it uses, its syllable shapes, stress or tones, speed and melody. Every English word maps to the same made-up word in it, so "no, no, NO!" repeats, and people from one culture share a vocabulary. A blended heritage switches between its two languages word by word.
+- **Presentation and age set the register.** Children are small and high, elders a little shaky.
+- **Six Voice genes make each person sound like themselves:** Pitch, Timbre, Breath, Gravel, Pace and Melody. They have their own card in the Atelier (**Hear voice** plays a sample, and letting go of a dial plays one too). You can lock them like any other knob, and `PM.breed` passes them down to children.
+- **Expression sets the mood.** Angry speech is tense and loud, sad speech slow and low, scared speech quick and trembling.
+- **Punctuation shapes the melody.** Questions rise, statements fall, CAPS are stressed and "…" trails off. "Hmm", "ha!", "oh", "uh" and "ugh" sound the same for everyone.
+
+There are two engines. Choose with the **Voices** picker in the Animator or on the Voice card:
+
+| Engine | What it is |
+|---|---|
+| **Babble synth** (default) | A small formant synthesiser: a glottal pulse with breath noise through five vocal-tract resonances, rendered per line. It works offline, every voice is distinct, and lines are deterministic. |
+| **Device voices** | Your browser's or system's speech voices, reading the same invented words. They are chosen by heritage and presentation, with pitch and speed set by the genes. They often sound more natural, but the selection varies by device and only one voice can speak at a time. |
+
+```js
+PM.voice.say(genome, 'Have you eaten yet?', { expr: 'happy' });  // → { duration, stop() } or null
+PM.voice.babble(genome, 'Have you eaten yet?');                   // → "kpa lo leka ku?"
+PM.voice.render(genome, text);                                    // → { pcm: Float32Array, sampleRate, duration, mouth }
+PM.voice.mode = 'off';                                            // 'synth' | 'device' | 'off' (remembered)
+```
+
+Browsers only allow sound after the first click or key press, so lines spoken before that are silent.
+
 ## Using it in a game (Phaser or any canvas engine)
 
 Load the scripts with plain `<script>` tags, in the same order as `index.html`, and **leave out `js/ui/*`**. They attach to `window.PM`. Put your own `PM.define(...)` additions in your game's code after `render.js`. Don't edit this repo.
@@ -269,7 +296,7 @@ Use **`PM.Actor`** (`js/core/actor.js`) for an animated portrait. It blinks, tal
 ```js
 const actor = new PM.Actor(character.genome, { width: 250 });  // actor.cv is a canvas (4:5)
 actor.setExpr('angry');           // any id from js/parts/expressions.js
-actor.say('You dare?');           // mouth flaps; actor.line holds the text meanwhile
+actor.say('You dare?');           // mouth flaps (and babbles out loud with speech-synth.js); actor.line holds the text
 actor.act('nod');                 // 'look left' | 'look right' | 'look center' | 'look away' | 'nod' | 'shake' | 'blink'
 // every frame:
 actor.update(dt);                 // dt in seconds
