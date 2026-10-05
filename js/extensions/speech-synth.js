@@ -3,11 +3,14 @@
  * Nobody speaks a real language here. Each heritage has its own invented tongue (which consonants
  * and vowels it uses, its syllable shapes, stress or tones, speed and melody), and every English word
  * maps to the same made-up word in it. So "no, no, NO!" repeats, and people of one culture share a vocabulary.
- * The sound is a small formant synthesiser rendered offline per line: a glottal pulse with breath
+ * The sound is a small formant synthesiser rendered offline per line: a glottal source with breath
  * noise, through five vocal-tract resonances that glide between consonants and vowels. No samples, no beeps.
+ * Two engines share this timeline: the default prosody engine (a harmonic source, per-sample glides and
+ * heritage colour) and the original classic engine, so you can switch back to how it sounded before.
  *
  *   gender + age     → speaking pitch and vocal-tract size (children small and high, elders shakier)
- *   heritage         → language; a blended heritage code-switches word by word
+ *   heritage         → language, plus a register/timbre/accent colour and a personal dialect variant;
+ *                      a blended heritage code-switches word by word
  *   the Voice genes  → pitch, timbre, breath, gravel, pace, melody: rolled, lockable, inherited by PM.breed
  *   expression       → mood: angry is tense and loud, sad slow and low, scared quick and trembling …
  *   punctuation      → questions rise, statements fall, CAPS are stressed, "…" trails off,
@@ -18,7 +21,7 @@
  *   PM.voice.say(genome, 'Have you eaten yet?', { expr: 'happy' })   → { duration, mouth, stop() } or null
  *   PM.voice.babble(genome, 'Have you eaten yet?')                   → the invented words, as text
  *   PM.voice.render(genome, text, opts)                              → { pcm: Float32Array, sampleRate, duration, mouth }
- *   PM.voice.mode = 'device'                                         → 'synth' (default) | 'device' (system voices read the babble) | 'off' */
+ *   PM.voice.mode = 'classic'                                        → 'synth' (prosody, default) | 'classic' (original) | 'device' | 'off' */
 (function (PM) {
   'use strict';
   const { clamp, lerp } = PM.math;
@@ -326,6 +329,11 @@
     f0 *= gender === 'masc' ? 1 + 0.06 * old : 1 - 0.1 * old;
     const gravel = clamp(vg + old * 0.3, 0, 1.3);
     const A = langOf(g.archetype), B = g.mixWith ? langOf(g.mixWith) : null;
+    // Heritage colour: on top of the invented language, every background gets its own register,
+    // timbre and accent strength, plus a personal dialect variant seeded from the genome (so it is
+    // inherited like everything else). The classic engine ignores this; the prosody engine applies it.
+    const accentSeed = hashFrac('accent|' + A.id);
+    const dialect = new PM.RNG((g.seed || 1) + '|dialect|' + A.id + (B ? '|' + B.id : ''));
     return {
       f0, fs,
       breath: clamp(0.14 + vb * 0.45 + (gender === 'fem' ? 0.06 : 0) + old * 0.15, 0, 1),
@@ -333,6 +341,12 @@
       fry: clamp(gravel * (gender === 'masc' ? 0.8 : 0.5) - 0.3, 0, 1), tremor: old * 0.55,
       rate: (0.84 + vpace * 0.32) * (1 - old * 0.1),
       melody: (0.6 + vm * 0.8) * (gender === 'fem' ? 1.1 : gender === 'masc' ? 0.92 : 1) * (1 + young * 0.15),
+      color: {
+        f0: (accentSeed - 0.5) * 2.6 + dialect.range(-0.5, 0.5),          // register, semitones
+        fs: 1 + (hashFrac('color|' + A.id) - 0.5) * 0.05 + dialect.range(-0.012, 0.012), // tract size
+        accent: clamp(0.3 + 0.7 * hashFrac('asp|' + A.id) + dialect.range(-0.15, 0.15), 0, 1), // consonant colour
+        tilt: dialect.range(-0.3, 0.3),                                    // bright ↔ soft voice
+      },
       langA: A, langB: B && B !== A ? B : null, mix: B && B !== A ? (g.mix != null ? g.mix : 0.5) : 0,
       seed: g.seed || 1,
     };
@@ -553,13 +567,142 @@
     return out;
   }
 
+  // ------------------------------------------------------------- prosody engine (default)
+  // A second, smoother voice. It reads the very same heritage timeline as the classic engine, so every
+  // invented language, accent, inherited pitch and mood is unchanged — only the sound is different:
+  //   • a harmonic glottal source with a natural spectral roll-off (soft saw, not a hard pulse),
+  //   • formants gliding per sample instead of snapping between frames, so words link and breathe,
+  //   • a brightness that follows each segment (vowels open the voice, hisses and stops darken it),
+  //   • aspiration mixed into the voiced path and a softer spectral slope, so it mumbles like a person.
+  const GLOTT = new Map();
+  /** One cycle of a soft glottal saw: harmonics to 1/k^p, peak-normalised. Cached per slope. */
+  function glottalWave(p) {
+    const key = (Math.round(p * 20) / 20).toFixed(2);
+    let w = GLOTT.get(key);
+    if (w) return w;
+    const L = 2048, K = 42;
+    w = new Float32Array(L);
+    let peak = 0, mean = 0;
+    for (let i = 0; i < L; i++) {
+      let v = 0;
+      for (let k = 1; k <= K; k++) v += Math.sin((2 * Math.PI * k * i) / L) / Math.pow(k, +key);
+      w[i] = v; if (Math.abs(v) > peak) peak = Math.abs(v);
+    }
+    const g = 1 / (peak || 1);
+    for (let i = 0; i < L; i++) mean += w[i];
+    mean = (mean / L) * g;
+    for (let i = 0; i < L; i++) w[i] = w[i] * g - mean;
+    GLOTT.set(key, w);
+    return w;
+  }
+
+  function synthProsody(voice, emo, tl, seed) {
+    const { segs, pts, dur } = tl;
+    const N = Math.ceil((dur + 0.06) * SR), out = new Float32Array(N);
+    let x = (seed >>> 0) || 0x9e3779b9;
+    const rnd = () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return ((x >>> 0) / 4294967296) * 2 - 1; };
+    const col = voice.color || { f0: 0, fs: 1, accent: 0.5, tilt: 0 };
+    const breath = clamp(voice.breath + emo.breath, 0, 1), tense = emo.tense;
+    const tremor = Math.max(voice.tremor, emo.tremor);
+    const fs = voice.fs * col.fs;
+    // the source spectrum: a soft saw that rolls off sooner for breathy voices, later for pressed ones
+    const pExp = clamp(1.72 + breath * 0.5 - tense * 0.4 + col.tilt * 0.3, 1.4, 2.7);
+    const WAVE = glottalWave(pExp), L = WAVE.length;
+    const f0Base = voice.f0 * st(col.f0);
+    const bwMul = 1.12 + 0.42 * breath - 0.1 * tense + (voice.fs - 1) * 0.8;
+    const F1up = 1 + 0.07 * Math.max(0, tense);
+    const BW = [75, 95, 150, 230, 320];
+    const R = [0, 1, 2, 3, 4].map(resonator), R1open = resonator(), np = resonator(), nz = resonator(),
+      bp = { b0: 0, a1: 0, a2: 0, x1: 0, x2: 0, y1: 0, y2: 0 };
+    const FR = 16, kF = 1 - Math.exp(-FR / SR / 0.03);
+    let F = segs[0].F.slice(), av = 0, ah = 0, af = 0, ff = 3000, fbw = 2000, nas = 0, fry = 0, bright = 0;
+    let si = 0, pi = 0, T0 = 1 / f0Base, shim = 1, phase = 0, cyc = 1, nlp = 0, dc1 = 0, dcy = 0, pre = 0, lpY = 0, lpK = 0.6;
+    let drift = 0, driftV = 0, flut = 0, fFl = [0, 0, 0];
+    for (let n0 = 0; n0 < N; n0 += FR) {
+      const t = n0 / SR;
+      while (si < segs.length - 1 && t >= segs[si].t1) si++;
+      const s = t < segs[segs.length - 1].t1 ? segs[si] : { F: segs[segs.length - 1].F, av: 0, ah: 0, af: 0, ff, fbw, nas: 0, fry: 0, sharp: 1 };
+      const kA = 1 - Math.exp(-FR / SR / (s.sharp ? 0.008 : 0.022));
+      const u = s.nuc ? clamp((t - s.t0) / Math.max(1e-4, s.t1 - s.t0), 0, 1) : 0.5;
+      const swell = s.nuc ? 0.7 + 0.3 * Math.sin(Math.PI * Math.pow(u, 0.7)) : 1;
+      for (let j = 0; j < 3; j++) { fFl[j] += (rnd() * 0.012 - fFl[j]) * 0.08; F[j] += (s.F[j] * (1 + fFl[j]) - F[j]) * kF; }
+      av += (s.av * swell - av) * kA; ah += (s.ah - ah) * kA; af += (s.af - af) * kA;
+      ff += (s.ff - ff) * 0.5; fbw += (s.fbw - fbw) * 0.5; nas += (s.nas - nas) * kF * 1.5; fry += (s.fry - fry) * kF * 0.4;
+      bright += ((s.av * 0.7 + s.af * 2 + (s.sharp ? 0.5 : 0)) - bright) * kA;
+      // pitch: interpolate the points, then a slow random wander, flutter and tremor — never a regular wobble
+      while (pi < pts.length - 1 && pts[pi + 1][0] <= t) pi++;
+      let semis;
+      if (!pts.length) semis = 0;
+      else if (t <= pts[0][0]) semis = pts[0][1];
+      else if (pi >= pts.length - 1) semis = pts[pts.length - 1][1];
+      else { const [ta0, sa] = pts[pi], [tb, sb] = pts[pi + 1], w = (t - ta0) / Math.max(1e-4, tb - ta0); semis = sa + (sb - sa) * (0.5 - 0.5 * Math.cos(Math.PI * clamp(w, 0, 1))); }
+      driftV += rnd() * 0.0009 - driftV * 0.04 - drift * 0.004; drift += driftV;
+      flut += (rnd() * 0.004 - flut) * 0.3;
+      const trem = Math.sin(2 * Math.PI * 5.3 * t);
+      const f0 = f0Base * st(semis) * (1 + drift + flut + tremor * 0.028 * trem);
+      const avT = av * (1 + tremor * 0.14 * trem) * clamp(1 + semis * 0.025, 0.7, 1.35);
+      const f1 = F[0] * fs * F1up * (1 - nas * 0.1), b1 = (BW[0] + nas * 90) * bwMul;
+      setRes(R[0], f1, b1); setRes(R1open, f1 * 1.03, b1 + 90 + 120 * breath);
+      setRes(R[1], F[1] * fs, (BW[1] + nas * 140) * bwMul);
+      setRes(R[2], F[2] * fs, (BW[2] + nas * 160) * bwMul);
+      setRes(R[3], 3350 * fs, BW[3] * bwMul);
+      setRes(R[4], Math.min(4300 * fs, SR * 0.45), BW[4] * bwMul);
+      setRes(np, 280, 100); setRes(nz, 280 + 220 * nas, 100);
+      { const w0 = 2 * Math.PI * Math.min(ff * Math.sqrt(fs), SR * 0.44) / SR, al = Math.sin(w0) / (2 * Math.max(0.5, ff / fbw)), a0 = 1 + al; bp.b0 = al / a0; bp.a1 = -2 * Math.cos(w0) / a0; bp.a2 = (1 - al) / a0; }
+      // brightness: the voice opens on vowels and stressed segments, closes on hisses and stops
+      const lpFc = clamp(4900 + bright * 2600 - breath * 1200 - Math.max(0, -tense) * 400, 1600, 9500);
+      lpK = 1 - Math.exp(-2 * Math.PI * lpFc / SR);
+      const r0 = R[0], ra = r0.a, rb = r0.b, rc = r0.c, oa = R1open.a, ob = R1open.b, oc = R1open.c;
+      const nEnd = Math.min(N, n0 + FR);
+      for (let n = n0; n < nEnd; n++) {
+        if (phase >= 1) {   // new glottal cycle: fresh jitter, shimmer, and a little creak
+          phase -= 1;
+          shim = (1 + rnd() * voice.shimmer) * (1 - fry * 0.45 * Math.abs(rnd()));
+          cyc = 1;
+          T0 = 1 / (f0 * (1 + rnd() * voice.jitter * 1.7));
+          if (fry > 0.05 && rnd() * 0.5 + 0.5 < fry * 0.5) cyc = 1.5;
+        }
+        phase += (1 / T0) / SR / cyc;
+        const open = phase % 1 < clamp(0.55 + 0.2 * breath - 0.15 * tense, 0.35, 0.8);
+        const src = WAVE[(phase * L) & (L - 1)] * shim * avT;
+        nlp += (rnd() - nlp) * 0.55;   // breath noise, a little softened
+        const asp = nlp * (ah * (0.9 + col.accent * 0.5) + avT * breath * (open ? 0.6 : 0.2));
+        let y = runAnti(nz, runRes(np, src * 2.4 + asp * 0.4));
+        for (let k = 4; k >= 1; k--) y = runRes(R[k], y);
+        if (open) { r0.a = oa; r0.b = ob; r0.c = oc; } else { r0.a = ra; r0.b = rb; r0.c = rc; }
+        y = runRes(r0, y);
+        pre += (y - pre) * 0.18; y += 0.8 * (y - pre);   // gentle high shelf: presence, like lip radiation
+        lpY += (y - lpY) * lpK; y = lpY;
+        const fn = rnd() * af * (0.8 + col.accent * 0.5);
+        const fy = bp.b0 * (fn - bp.x2) - bp.a1 * bp.y1 - bp.a2 * bp.y2;
+        bp.x2 = bp.x1; bp.x1 = fn; bp.y2 = bp.y1; bp.y1 = fy;
+        const sOut = y * 0.12 + fy * 0.55;
+        dcy = sOut - dc1 + 0.995 * dcy; dc1 = sOut;
+        out[n] = dcy;
+      }
+    }
+    // loudness: normalise the sounding part, then a soft limiter and short fades
+    let sum = 0, cnt = 0;
+    for (const s of segs) if (s.av > 0.2) for (let n = Math.floor(s.t0 * SR); n < Math.min(N, s.t1 * SR); n++) { sum += out[n] * out[n]; cnt++; }
+    const rms = Math.sqrt(sum / Math.max(1, cnt)) || 1, g = 0.2 / rms;
+    for (let n = 0; n < N; n++) out[n] = Math.tanh(out[n] * g * 1.05) * 0.85;
+    const fin = Math.floor(SR * 0.03), fout = Math.floor(SR * 0.08);
+    for (let n = 0; n < fin && n < N; n++) out[n] *= n / fin;
+    for (let n = 0; n < fout && n < N; n++) out[N - 1 - n] *= n / fout;
+    return out;
+  }
+
   // ------------------------------------------------------------- public: render / babble
   const cache = new Map();
-  /** Render a line for genome g. opts: expr, speed, target (seconds to aim for, ±15%). */
+  /** Which synth renders a line: 'synth' (prosody, the default) or 'classic' (the original engine). */
+  const engineOf = opts => (opts.engine === 'classic' || (!opts.engine && mode === 'classic')) ? 'classic' : 'synth';
+
+  /** Render a line for genome g. opts: expr, speed, target (seconds to aim for, ±15%), engine. */
   function render(g, text, opts = {}) {
     if (!text || !/[\p{L}\p{N}]/u.test(text)) return null;
+    const engine = engineOf(opts);
     const voice = voiceOf(g), emo = emotion(opts.expr || g.expression);
-    const key = [JSON.stringify(voice, (k, v) => (v && v.id && v.cons ? v.id : v)), text, opts.expr || g.expression, opts.speed || 1, opts.target || 0].join('|');
+    const key = [engine, JSON.stringify(voice, (k, v) => (v && v.id && v.cons ? v.id : v)), text, opts.expr || g.expression, opts.speed || 1, opts.target || 0].join('|');
     if (cache.has(key)) { const c = cache.get(key); cache.delete(key); cache.set(key, c); return c; }
     const phrases = syllablesOf(voice, phrasesOf(text), emo);
     const tl = timelineOf(voice, phrases, emo, opts.speed);
@@ -569,7 +712,7 @@
       for (const p of tl.pts) p[0] *= k;
       tl.dur *= k;
     }
-    const pcm = synth(voice, emo, tl, PM.hashString(voice.seed + '|' + text));
+    const pcm = engine === 'classic' ? synth(voice, emo, tl, PM.hashString(voice.seed + '|' + text)) : synthProsody(voice, emo, tl, PM.hashString(voice.seed + '|' + text));
     const mouth = [];
     for (const s of tl.segs) if (!mouth.length || mouth[mouth.length - 1][1] !== s.mouth) mouth.push([s.t0, s.mouth]);
     const res = { pcm, sampleRate: SR, duration: tl.dur, mouth, loud: emo.loud };
@@ -596,13 +739,16 @@
   }
 
   // ------------------------------------------------------------- playback
-  // Two engines speak the same invented words:
-  //   'synth'  — the formant synthesiser above: every voice its own, works offline, records into videos
-  //   'device' — the browser's / system's speech voices (often natural, recorded-sounding ones), picked per
-  //              heritage and presentation, with pitch and speed from the Voice genes. Varies by device.
-  const MODES = [['synth', 'Babble synth'], ['device', 'Device voices'], ['off', 'Off']];
+  // Three engines speak the same invented words:
+  //   'synth'   — the prosody synthesiser (default): a harmonic glottal source and gliding formants,
+  //               heritage colours on top. Every voice its own, works offline, records into videos.
+  //   'classic' — the original formant synthesiser, kept so you can switch back to exactly how it was.
+  //   'device'  — the browser's / system's speech voices (often natural, recorded-sounding ones), picked per
+  //               heritage and presentation, with pitch and speed from the Voice genes. Varies by device.
+  const MODES = [['synth', 'Babble synth'], ['classic', 'Classic synth'], ['device', 'Device voices'], ['off', 'Off']];
   let mode = 'synth';
-  try { const m = localStorage.getItem('portrait-atelier.voices'); if (m === 'off' || m === 'device' || m === 'synth') mode = m; } catch (e) { /* storage blocked */ }
+  // 'synth' was the only synth engine before, so an old saved value now selects the improved default.
+  try { const m = localStorage.getItem('portrait-atelier.voices'); if (m === 'off' || m === 'device' || m === 'synth' || m === 'classic') mode = m; } catch (e) { /* storage blocked */ }
   let ctx = null, master = null;
   const playing = new Set();
 
@@ -630,7 +776,7 @@
   }
   // browsers only allow sound after a click or key press: wake the audio on the first one
   let gestureAt = -1e9;
-  if (typeof document !== 'undefined') for (const ev of ['pointerdown', 'keydown', 'touchstart']) document.addEventListener(ev, () => { gestureAt = performance.now(); if (mode === 'synth' || ctx) audio(); }, { capture: true, passive: true });
+  if (typeof document !== 'undefined') for (const ev of ['pointerdown', 'keydown', 'touchstart']) document.addEventListener(ev, () => { gestureAt = performance.now(); if (mode === 'synth' || mode === 'classic' || ctx) audio(); }, { capture: true, passive: true });
 
   function saySynth(g, text, opts) {
     const ac = audio();
@@ -718,7 +864,7 @@
   }
 
   /** Speak a line now. Returns { duration, mouth, stop() } or null when off / no audio yet.
-   *  opts: expr, speed, target, force (play even when voices are off), engine ('synth' | 'device'). */
+   *  opts: expr, speed, target, force (play even when voices are off), engine ('synth' | 'classic' | 'device'). */
   function say(g, text, opts = {}) {
     const engine = opts.engine || (mode === 'off' ? (opts.force ? 'synth' : null) : mode);
     if (!engine || !text) return null;
@@ -730,12 +876,13 @@
 
   PM.voice = {
     say, render, babble, voiceOf, deviceVoice, stopAll, languages: LANGS, emotions: EMO, genes: GENES, modes: MODES,
+    engines: ['synth', 'classic'],
     get mode() { return mode; },
     set mode(m) {
       mode = MODES.some(x => x[0] === m) ? m : 'synth';
       try { localStorage.setItem('portrait-atelier.voices', mode); } catch (e) { /* storage blocked */ }
       stopAll();
-      if (mode === 'synth') audio();
+      if (mode === 'synth' || mode === 'classic') audio();
       document.dispatchEvent(new CustomEvent('voices-mode'));
     },
     get enabled() { return mode !== 'off'; },
@@ -793,7 +940,7 @@
   /** <label>Voices <select>Babble synth | Device voices | Off</select></label>, kept in sync everywhere. */
   function modePicker(id) {
     const lab = document.createElement('label'); lab.className = 'voice-mode';
-    lab.title = 'Babble synth: every voice made here, works offline and in recordings. Device voices: your system’s speech voices reading the same invented words — often more natural, varies by device.';
+    lab.title = 'Babble synth (default): the prosody engine — every voice made here, works offline and in recordings. Classic synth: the original engine, if you prefer its sound. Device voices: your system’s speech voices reading the same invented words — often more natural, varies by device.';
     lab.append('Voices ');
     const sel = document.createElement('select'); sel.id = id;
     for (const [v, l] of MODES) { const o = document.createElement('option'); o.value = v; o.textContent = l; sel.appendChild(o); }

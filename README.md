@@ -271,18 +271,20 @@ In code, call `PM.generate({ seed, archetype, mixWith, mix, gender, base, locked
 - **Expression sets the mood.** Angry speech is tense and loud, sad speech slow and low, scared speech quick and trembling.
 - **Punctuation shapes the melody.** Questions rise, statements fall, CAPS are stressed and "…" trails off. "Hmm", "ha!", "oh", "uh" and "ugh" sound the same for everyone.
 
-There are two engines. Choose with the **Voices** picker in the Animator or on the Voice card:
+There are three engines. Choose with the **Voices** picker in the Animator or on the Voice card:
 
 | Engine | What it is |
 |---|---|
-| **Babble synth** (default) | A small formant synthesiser: a glottal pulse with breath noise through five vocal-tract resonances, rendered per line. It works offline, every voice is distinct, and lines are deterministic. |
+| **Babble synth** (default) | The prosody engine: a harmonic glottal source with a natural spectral roll-off, formants gliding per sample and a brightness that follows each segment, so words link and breathe. Heritage colour (register, timbre and accent strength) is layered on top, so different backgrounds sound distinct. It works offline, every voice is distinct, and lines are deterministic. |
+| **Classic synth** | The original formant synthesiser, kept so you can switch back to exactly how it sounded before. |
 | **Device voices** | Your browser's or system's speech voices, reading the same invented words. They are chosen by heritage and presentation, with pitch and speed set by the genes. They often sound more natural, but the selection varies by device and only one voice can speak at a time. |
 
 ```js
 PM.voice.say(genome, 'Have you eaten yet?', { expr: 'happy' });  // → { duration, stop() } or null
 PM.voice.babble(genome, 'Have you eaten yet?');                   // → "kpa lo leka ku?"
 PM.voice.render(genome, text);                                    // → { pcm: Float32Array, sampleRate, duration, mouth }
-PM.voice.mode = 'off';                                            // 'synth' | 'device' | 'off' (remembered)
+PM.voice.render(genome, text, { engine: 'classic' });             // render with the original engine
+PM.voice.mode = 'off';                                            // 'synth' | 'classic' | 'device' | 'off' (remembered)
 ```
 
 Browsers only allow sound after the first click or key press, so lines spoken before that are silent.
