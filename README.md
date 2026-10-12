@@ -92,6 +92,7 @@ tools/contact-sheet.html renders every entry of a category, for checking new par
 - **Garments (19):** crew, V-neck, turtleneck, suit, wrap/toga, boubou, dashiki, cross-collar, hanbok, deel, mandarin collar, kurta/thobe, embroidered tunic, huipil, poncho, scarf, sari, fur collar, bare shoulders.
 - **Patterns (21):** kente, adinkra-style glyphs, mud cloth, batik, ikat, paisley, tartan, keffiyeh fishnet, cross-stitch, Andean bands, blossoms, cloud scrolls, beadwork, and more.
 - **Jewellery and details:** 9 earrings, 12 necklaces, 4 eyewear, 7 facial-hair styles, 16 signature marks (freckles, bindi, thanaka, kohl, chin tattoo, nose rings…).
+- **Nigerian & African pack** (`js/extensions/naija.js`): Lagosian, Yoruba, Igbo, Hausa, Fulani, Edo, Niger Delta, Efik-Ibibio, Middle Belt, Kanuri, Ghanaian, Kenyan, South African, Ethiopian, Senegalese and Congolese heritages; dreadlocks, loc & braid buns, faux locs, knotless braids, Ghana braids, bantu knots, shuku, irun kiko and a frontal wig; kaftan, buba, jersey and babanriga; red cap, zanna cap and satin bonnet; ankara and aso-oke textiles; Lagos roles (corper, banker, okada rider, influencer, market trader, Nollywood star).
 - **4 paint styles:** Ink & Ochre (the poster look), Natural Tones, Ink Wash (navy brush, yellow cheeks), Terracotta. **5 papers.**
 
 ---

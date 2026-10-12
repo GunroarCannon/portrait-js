@@ -486,5 +486,5 @@
   });
 
   // Kit exported for your own styles (see README).
-  PM.hairKit = { capSil, longSil, cloudSil, faceHole, flow, curls, plait, rows, drawStrand, hairStyle, generic, texRng };
+  PM.hairKit = { capSil, longSil, cloudSil, faceHole, flow, curls, plait, rows, drawStrand, strandPaths, drawStrands, hairStyle, generic, texRng };
 })(window.PM = window.PM || {});
