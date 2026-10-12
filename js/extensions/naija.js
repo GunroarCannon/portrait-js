@@ -603,11 +603,63 @@
     pattern: { 'aso-oke': 2, ankara: 3 }, metals: { gold: 4, coral: 1 },
   });
 
+  // ===================================================================== MORE NIGERIAN PEOPLES
+  // Each one is a variation on a parent heritage: its own label, notes, dress/hair weights and palette.
+  const sub = (parent, id, label, step, o) => {
+    const p = PM.get('archetypes', parent);
+    A(id, Object.assign({}, p, { label, order: wa.order + step, notes: o.notes }, o.over || {}));
+  };
+  // South-west (Yoruba family)
+  sub('yoruba', 'awori', 'Awori (Lagos indigene)', 0.12, { notes: 'The original Lagosians: Awori, Egun of Badagry and the Eko lagoon towns. Fila and agbada at ceremonies, gele and iro & buba, adire and aso-oke.',
+    over: { headwear: { fem: { gele: 3.5, none: 3.5, headwrap: 1.2 }, masc: { fila: 3.5, none: 4, kufi: 0.5 } }, patterns: { 'aso-oke': 2.5, ankara: 3, batik: 2.5, plain: 1 } } });
+  sub('yoruba', 'ijebu', 'Ijebu', 0.14, { notes: 'Ijebu-Ode and Remo. Known for sharp business sense, fine adire and aso-oke, neat gele and crisp agbada.',
+    over: { palette: ['#7a2e7a', '#d4a017', '#f1e6cc', '#16120f', '#1c4e9a', '#0b6b4a'] } });
+  sub('yoruba', 'egba', 'Egba (Abeokuta)', 0.16, { notes: 'Abeokuta and Egbaland. The adire capital: indigo resist-dyed cloth, aso-oke, strong gele.',
+    over: { patterns: { batik: 3.5, 'aso-oke': 2.5, ankara: 1.5, plain: 1 }, palette: ['#1b3b6f', '#f1e6cc', '#16120f', '#d4a017', '#b5532f'] } });
+  // South-east
+  sub('igbo', 'ikwerre', 'Ikwerre (Port Harcourt)', 0.22, { notes: 'Port Harcourt and Rivers State. Boldly dressed, George wrappers, coral beads and tailored senator wears.',
+    over: { clothing: { fem: { buba: 2.5, wrap: 2.5, boubou: 1.2, vneck: 1.2, crew: 0.6 }, masc: { kaftan: 3, suit: 1.2, dashiki: 1, agbada: 1, crew: 1 } }, headwear: { fem: { none: 5, gele: 2.5, headwrap: 1 }, masc: { none: 7, 'red-cap': 1.2, fila: 0.5 } } } });
+  // North
+  sub('hausa', 'nupe', 'Nupe (Bida)', 0.32, { notes: 'Bida, Niger State. Famed for glass beads, brass work and embroidered gowns; Hausa-adjacent dress with Middle Belt flavour.',
+    over: { metals: [['brass', 4], ['silver', 2], ['gold', 1]], patterns: { plain: 2, zigzag: 1.5, 'cross-stitch': 1.5, ankara: 1.5, 'aso-oke': 0.8 } } });
+  sub('hausa', 'gbagyi', 'Gbagyi (Abuja)', 0.34, { notes: 'Abuja and its surroundings. The Gbagyi are the people of the Federal Capital; plain wraps, embroidered tops, red-clay pots and beads.',
+    over: { headwear: { fem: { none: 5, headwrap: 3, hijab: 0.6 }, masc: { none: 6, kufi: 1.5, 'zanna-cap': 0.8, 'baseball-cap': 1 } }, patterns: { plain: 3, ankara: 2, zigzag: 1 } } });
+  // Middle Belt
+  sub('middle-belt', 'tiv', 'Tiv (Benue)', 0.56, { notes: 'Benue State. The Tiv "A\'nger" black-and-white striped cloth, great dancers, beads and bold stripes.',
+    over: { patterns: { 'bold-stripes': 3.5, stripes: 2, plain: 1.5, ankara: 1 }, palette: ['#16120f', '#f1e6cc', '#b3262a', '#d4a017'] } });
+  sub('middle-belt', 'idoma', 'Idoma', 0.57, { notes: 'South Benue. Masquerade and bead traditions, wrappers, cap and gown on Sundays.',
+    over: { palette: ['#b3262a', '#d4a017', '#16120f', '#f1e6cc', '#1b6b4a'] } });
+  sub('middle-belt', 'igala', 'Igala (Kogi)', 0.58, { notes: 'Idah and Anyigba, Kogi State. Royal Attah tradition: red caps, coral beads, white wrappers.',
+    over: { headwear: { fem: { none: 4, gele: 2.5, headwrap: 1.5 }, masc: { none: 5, 'red-cap': 2, fila: 1 } }, metals: [['coral', 3.5], ['gold', 2], ['brass', 1]] } });
+  sub('middle-belt', 'ebira', 'Ebira (Okene)', 0.59, { notes: 'Okene and Kogi central. The Ebira tiger-print cloth called "etuko", hand-woven and prized at ceremonies.',
+    over: { patterns: { zigzag: 2, 'bold-stripes': 2, plain: 2, ankara: 1.5, 'aso-oke': 1 } } });
+  sub('middle-belt', 'berom', 'Berom & Plateau', 0.6, { notes: 'Jos Plateau. Cool-climate sweaters and beanies as often as wrappers; Berom beadwork, cornrows.',
+    over: { headwear: { fem: { none: 6, headwrap: 2, beanie: 1 }, masc: { none: 6, beanie: 1.5, 'baseball-cap': 1.2 } }, clothing: { fem: { wrap: 2, buba: 1.5, crew: 1.5, vneck: 1.2, hoodie: 1 }, masc: { crew: 2, hoodie: 1.5, kaftan: 1.2, 'denim-jacket': 1, dashiki: 0.6 } } } });
+  // South-south
+  sub('niger-delta', 'ijaw', 'Ijaw (Bayelsa)', 0.46, { notes: 'The creeks of Bayelsa. Etibo shirts and wrapper, walking stick, bold printed wrappers, bead necklaces and red-and-blue palettes.',
+    over: { palette: ['#1c4e9a', '#b3262a', '#f1e6cc', '#d4a017', '#16120f'], metals: [['coral', 3], ['gold', 2], ['brass', 1]] } });
+  sub('niger-delta', 'urhobo', 'Urhobo (Delta)', 0.47, { notes: 'Warri, Sapele and Delta State. George wrappers, coral beads, Urhobo-style gele and loud, joyful ceremonies.',
+    over: { headwear: { fem: { gele: 3, none: 4, headwrap: 1 }, masc: { none: 6, fila: 1.2, 'red-cap': 0.6 } } } });
+  sub('niger-delta', 'itsekiri', 'Itsekiri (Warri)', 0.48, { notes: 'Warri and the Western Delta. Coral-bead regalia, wrappers and fine lace, the Olu of Warri palace tradition.',
+    over: { metals: [['coral', 4], ['gold', 3]], necklaces: { fem: { 'bead-collar': 3, beads: 3, layered: 1.5, none: 1 }, masc: { beads: 2.5, none: 3, 'bead-collar': 0.8 } } } });
+  sub('niger-delta', 'ogoni', 'Ogoni & Rivers', 0.49, { notes: 'Ogoniland and the Rivers creeks. Fishing-town hardiness, bold wax prints, cornrows and braids.',
+    over: { patterns: { ankara: 3.5, plain: 2, batik: 1 } } });
+  sub('efik-ibibio', 'efik', 'Efik (Calabar)', 0.5, { notes: 'Calabar. The Efik Ofonmma wrapper-and-blouse, coral beads and high-standing headdresses; carnival city.',
+    over: { headwear: { fem: { gele: 4, none: 3, headwrap: 1 }, masc: { none: 7, fila: 0.8, 'red-cap': 0.4 } }, metals: [['coral', 4], ['gold', 2]] } });
+  sub('efik-ibibio', 'ibibio', 'Ibibio (Akwa Ibom)', 0.51, { notes: 'Uyo and Akwa Ibom. The Ekombi dance costume tradition, raffia and beads, bright wrappers and neat braids.',
+    over: { patterns: { ankara: 3, plain: 2, batik: 1 } } });
+
+  /** Nigerian peoples first (what Lagos Swipe offers), then the wider African set. */
+  PM.NAIJA_HERITAGES = ['lagosian', 'yoruba', 'awori', 'ijebu', 'egba', 'igbo', 'ikwerre', 'hausa', 'fulani', 'kanuri', 'nupe', 'gbagyi', 'edo', 'ijaw', 'urhobo', 'itsekiri', 'ogoni', 'efik', 'ibibio',
+    'tiv', 'idoma', 'igala', 'ebira', 'berom'];
+  PM.OTHER_AFRICAN = ['ghanaian', 'kenyan', 'south-african', 'ethiopian', 'senegalese', 'congolese'];
+
   PM.CULTURE_GROUPS = PM.CULTURE_GROUPS || {};
-  for (const id of ['lagosian', 'yoruba', 'igbo', 'hausa', 'fulani', 'edo', 'niger-delta', 'efik-ibibio', 'middle-belt', 'kanuri', 'ghanaian', 'senegalese', 'congolese', 'south-african']) PM.CULTURE_GROUPS[id] = ['african', 'west-african'];
+  for (const id of ['lagosian', 'yoruba', 'awori', 'ijebu', 'egba', 'igbo', 'ikwerre', 'hausa', 'fulani', 'nupe', 'gbagyi', 'edo', 'niger-delta', 'ijaw', 'urhobo', 'itsekiri', 'ogoni', 'efik', 'ibibio', 'efik-ibibio', 'middle-belt', 'tiv', 'idoma', 'igala', 'ebira', 'berom', 'kanuri', 'ghanaian', 'senegalese', 'congolese', 'south-african']) PM.CULTURE_GROUPS[id] = ['african', 'west-african'];
   for (const id of ['kenyan', 'ethiopian']) PM.CULTURE_GROUPS[id] = ['african', 'east-african'];
 
   /** The heritages the Lagos Swipe game rolls from, with how common each is in Lagos. */
-  PM.NAIJA_MIX = { lagosian: 4, yoruba: 5, igbo: 4, hausa: 1.4, fulani: 0.5, edo: 0.8, 'niger-delta': 0.8, 'efik-ibibio': 0.5, 'middle-belt': 0.5, kanuri: 0.2,
-    ghanaian: 0.5, kenyan: 0.15, 'south-african': 0.15, ethiopian: 0.1, senegalese: 0.1, congolese: 0.1 };
+  PM.NAIJA_MIX = { lagosian: 5, yoruba: 4.5, awori: 1.2, ijebu: 1.2, egba: 0.8, igbo: 4.2, ikwerre: 0.6, hausa: 1.6, fulani: 0.5, kanuri: 0.2, nupe: 0.3, gbagyi: 0.3, edo: 0.9,
+    ijaw: 0.6, urhobo: 0.6, itsekiri: 0.4, ogoni: 0.2, efik: 0.4, ibibio: 0.5, tiv: 0.4, idoma: 0.3, igala: 0.3, ebira: 0.3, berom: 0.2,
+    ghanaian: 0.12, kenyan: 0.04, 'south-african': 0.04, ethiopian: 0.03, senegalese: 0.03, congolese: 0.03 };
 })(window.PM = window.PM || {});
