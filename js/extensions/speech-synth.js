@@ -901,6 +901,7 @@
   if (PM.Actor) {
     const A = PM.Actor.prototype, say0 = A.say, update0 = A.update, destroy0 = A.destroy;
     A.say = function (text, speed) {
+      if (!PM.voice || PM.voice.mode === 'off') { this.talk = null; return; }
       say0.call(this, text, speed);
       if (this.voice) this.voice.stop();
       this.voice = say(this.g, text, { expr: this.expr, speed, target: this.talk.left });
